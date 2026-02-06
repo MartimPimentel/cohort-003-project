@@ -1,6 +1,12 @@
 import { useState, useRef, useEffect } from "react";
 import { Link, useFetcher } from "react-router";
 import { toast } from "sonner";
+import {
+  DragDropContext,
+  Droppable,
+  Draggable,
+  type DropResult,
+} from "@hello-pangea/dnd";
 import type { Route } from "./+types/instructor.$courseId";
 import {
   getCourseById,
@@ -14,6 +20,7 @@ import {
   updateModuleTitle,
   deleteModule,
   getModuleById,
+  reorderModules,
 } from "~/services/moduleService";
 import {
   createLesson,
@@ -41,6 +48,7 @@ import {
   Circle,
   Clock,
   FileEdit,
+  GripVertical,
   Pencil,
   Plus,
   Trash2,
@@ -232,6 +240,16 @@ export async function action({ params, request }: Route.ActionArgs) {
     }
     updateLessonTitle(lessonId, title);
     return { success: true, field: "lesson" };
+  }
+
+  if (intent === "reorder-modules") {
+    const moduleIdsJson = formData.get("moduleIds") as string;
+    if (!moduleIdsJson) {
+      return data({ error: "Missing module IDs." }, { status: 400 });
+    }
+    const moduleIds: number[] = JSON.parse(moduleIdsJson);
+    reorderModules(courseId, moduleIds);
+    return { success: true, field: "module-reorder" };
   }
 
   if (intent === "delete-lesson") {
@@ -862,6 +880,7 @@ export default function InstructorCourseEditor({
 }: Route.ComponentProps) {
   const { course, lessonCount, enrollmentCount } = loaderData;
   const statusFetcher = useFetcher();
+  const reorderFetcher = useFetcher();
 
   useEffect(() => {
     if (statusFetcher.state === "idle" && statusFetcher.data?.success) {
@@ -869,9 +888,30 @@ export default function InstructorCourseEditor({
     }
   }, [statusFetcher.state, statusFetcher.data]);
 
+  useEffect(() => {
+    if (reorderFetcher.state === "idle" && reorderFetcher.data?.success) {
+      toast.success("Modules reordered.");
+    }
+  }, [reorderFetcher.state, reorderFetcher.data]);
+
   function handleStatusChange(newStatus: string) {
     statusFetcher.submit(
       { intent: "update-status", status: newStatus },
+      { method: "post" }
+    );
+  }
+
+  function handleModuleDragEnd(result: DropResult) {
+    if (!result.destination) return;
+    if (result.source.index === result.destination.index) return;
+
+    const reordered = Array.from(course.modules);
+    const [moved] = reordered.splice(result.source.index, 1);
+    reordered.splice(result.destination.index, 0, moved);
+
+    const moduleIds = reordered.map((m) => m.id);
+    reorderFetcher.submit(
+      { intent: "reorder-modules", moduleIds: JSON.stringify(moduleIds) },
       { method: "post" }
     );
   }
@@ -972,73 +1012,115 @@ export default function InstructorCourseEditor({
             </CardContent>
           </Card>
         ) : (
-          <div className="space-y-4">
-            {course.modules.map((mod) => (
-              <Card key={mod.id}>
-                <CardHeader>
-                  <div className="flex items-center justify-between">
-                    <div className="flex-1">
-                      <InlineEditableModuleTitle
-                        value={mod.title}
-                        moduleId={mod.id}
-                      />
-                      <p className="mt-1 px-2 text-sm text-muted-foreground">
-                        {mod.lessons.length}{" "}
-                        {mod.lessons.length === 1 ? "lesson" : "lessons"}
-                      </p>
-                    </div>
-                    <DeleteModuleButton
-                      moduleId={mod.id}
-                      moduleTitle={mod.title}
-                    />
-                  </div>
-                </CardHeader>
-                <CardContent>
-                  {mod.lessons.length === 0 ? (
-                    <p className="px-3 py-2 text-sm text-muted-foreground">
-                      No lessons yet.
-                    </p>
-                  ) : (
-                    <ul className="space-y-1">
-                      {mod.lessons.map((lesson) => (
-                        <li key={lesson.id}>
-                          <div className="flex items-center gap-3 px-3 py-1.5 text-sm">
-                            <Circle className="size-4 shrink-0 text-muted-foreground" />
-                            <div className="flex-1">
-                              <InlineEditableLessonTitle
-                                value={lesson.title}
-                                lessonId={lesson.id}
-                              />
-                            </div>
-                            {lesson.durationMinutes && (
-                              <span className="flex items-center gap-1 text-xs text-muted-foreground">
-                                <Clock className="size-3" />
-                                {lesson.durationMinutes}m
-                              </span>
-                            )}
-                            <Link to={`/instructor/${course.id}/lessons/${lesson.id}`}>
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                className="h-6 w-6 p-0 text-muted-foreground hover:text-foreground"
-                              >
-                                <FileEdit className="size-3.5" />
-                              </Button>
-                            </Link>
-                            <DeleteLessonButton
-                              lessonId={lesson.id}
-                              lessonTitle={lesson.title}
-                            />
-                          </div>
-                        </li>
-                      ))}
-                    </ul>
-                  )}
-                  <AddLessonForm moduleId={mod.id} />
-                </CardContent>
-              </Card>
-            ))}
-          </div>
+          <DragDropContext onDragEnd={handleModuleDragEnd}>
+            <Droppable droppableId="modules">
+              {(provided) => (
+                <div
+                  className="space-y-4"
+                  ref={provided.innerRef}
+                  {...provided.droppableProps}
+                >
+                  {course.modules.map((mod, index) => (
+                    <Draggable
+                      key={mod.id}
+                      draggableId={String(mod.id)}
+                      index={index}
+                    >
+                      {(provided, snapshot) => (
+                        <div
+                          ref={provided.innerRef}
+                          {...provided.draggableProps}
+                        >
+                          <Card
+                            className={
+                              snapshot.isDragging
+                                ? "shadow-lg ring-2 ring-primary/50"
+                                : ""
+                            }
+                          >
+                            <CardHeader>
+                              <div className="flex items-center justify-between">
+                                <div className="flex items-center gap-2 flex-1">
+                                  <div
+                                    {...provided.dragHandleProps}
+                                    className="cursor-grab active:cursor-grabbing rounded p-1 text-muted-foreground hover:text-foreground hover:bg-muted"
+                                  >
+                                    <GripVertical className="size-5" />
+                                  </div>
+                                  <div className="flex-1">
+                                    <InlineEditableModuleTitle
+                                      value={mod.title}
+                                      moduleId={mod.id}
+                                    />
+                                    <p className="mt-1 px-2 text-sm text-muted-foreground">
+                                      {mod.lessons.length}{" "}
+                                      {mod.lessons.length === 1
+                                        ? "lesson"
+                                        : "lessons"}
+                                    </p>
+                                  </div>
+                                </div>
+                                <DeleteModuleButton
+                                  moduleId={mod.id}
+                                  moduleTitle={mod.title}
+                                />
+                              </div>
+                            </CardHeader>
+                            <CardContent>
+                              {mod.lessons.length === 0 ? (
+                                <p className="px-3 py-2 text-sm text-muted-foreground">
+                                  No lessons yet.
+                                </p>
+                              ) : (
+                                <ul className="space-y-1">
+                                  {mod.lessons.map((lesson) => (
+                                    <li key={lesson.id}>
+                                      <div className="flex items-center gap-3 px-3 py-1.5 text-sm">
+                                        <Circle className="size-4 shrink-0 text-muted-foreground" />
+                                        <div className="flex-1">
+                                          <InlineEditableLessonTitle
+                                            value={lesson.title}
+                                            lessonId={lesson.id}
+                                          />
+                                        </div>
+                                        {lesson.durationMinutes && (
+                                          <span className="flex items-center gap-1 text-xs text-muted-foreground">
+                                            <Clock className="size-3" />
+                                            {lesson.durationMinutes}m
+                                          </span>
+                                        )}
+                                        <Link
+                                          to={`/instructor/${course.id}/lessons/${lesson.id}`}
+                                        >
+                                          <Button
+                                            variant="ghost"
+                                            size="sm"
+                                            className="h-6 w-6 p-0 text-muted-foreground hover:text-foreground"
+                                          >
+                                            <FileEdit className="size-3.5" />
+                                          </Button>
+                                        </Link>
+                                        <DeleteLessonButton
+                                          lessonId={lesson.id}
+                                          lessonTitle={lesson.title}
+                                        />
+                                      </div>
+                                    </li>
+                                  ))}
+                                </ul>
+                              )}
+                              <AddLessonForm moduleId={mod.id} />
+                            </CardContent>
+                          </Card>
+                        </div>
+                      )}
+                    </Draggable>
+                  ))}
+                  {provided.placeholder}
+                </div>
+              )}
+            </Droppable>
+          </DragDropContext>
         )}
         <AddModuleForm />
       </div>
