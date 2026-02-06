@@ -1,6 +1,6 @@
 # INPUTS
 
-@ralph/prd.md
+Issues JSON is provided at start of context. Parse it to get open issues with their bodies and comments.
 
 You've also been passed a file containing the last 10 RALPH commits (SHA, date, full message). Review these to understand what work has been done.
 
@@ -77,6 +77,12 @@ Make a git commit. The commit message must:
 5. Blockers or notes for next iteration
 
 Keep it concise.
+
+# THE ISSUE
+
+If the task is complete, close the original GitHub issue.
+
+If the task is not complete, leave a comment on the GitHub issue with what was done.
 
 # FINAL RULES
 
