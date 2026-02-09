@@ -94,7 +94,7 @@ async function seed() {
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       module_id INTEGER NOT NULL REFERENCES modules(id),
       title TEXT NOT NULL,
-      content_html TEXT,
+      content TEXT,
       video_url TEXT,
       position INTEGER NOT NULL,
       duration_minutes INTEGER,
@@ -487,7 +487,7 @@ By the end of this course, you'll understand why TypeScript has become the defau
         .values({
           moduleId: mod.id,
           title: lessonData.title,
-          contentHtml: lessonData.content,
+          content: lessonData.content,
           videoUrl: lessonData.videoUrl ?? null,
           position: li + 1,
           durationMinutes: lessonData.duration,
@@ -726,7 +726,7 @@ Every lesson is focused and practical. No 45-minute lectures where 40 minutes ar
         .values({
           moduleId: mod.id,
           title: lessonData.title,
-          contentHtml: lessonData.content,
+          content: lessonData.content,
           videoUrl: lessonData.videoUrl ?? null,
           position: li + 1,
           durationMinutes: lessonData.duration,

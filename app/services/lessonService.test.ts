@@ -47,7 +47,7 @@ describe("lessonService", () => {
       expect(lesson).toBeDefined();
       expect(lesson.title).toBe("Lesson 1");
       expect(lesson.moduleId).toBe(moduleId);
-      expect(lesson.contentHtml).toBe("<p>Content</p>");
+      expect(lesson.content).toBe("<p>Content</p>");
       expect(lesson.position).toBe(1);
       expect(lesson.durationMinutes).toBe(30);
     });
@@ -130,14 +130,14 @@ describe("lessonService", () => {
 
       const updated = updateLesson(lesson.id, "New Title", null, null, null);
       expect(updated!.title).toBe("New Title");
-      expect(updated!.contentHtml).toBe("<p>old</p>"); // unchanged
+      expect(updated!.content).toBe("<p>old</p>"); // unchanged
     });
 
     it("updates content when provided", () => {
       const lesson = createLesson(moduleId, "Title", "<p>old</p>", null, 1, null);
 
       const updated = updateLesson(lesson.id, null, "<p>new content</p>", null, null);
-      expect(updated!.contentHtml).toBe("<p>new content</p>");
+      expect(updated!.content).toBe("<p>new content</p>");
       expect(updated!.title).toBe("Title"); // unchanged
     });
 
@@ -146,7 +146,7 @@ describe("lessonService", () => {
 
       const updated = updateLesson(lesson.id, "New", "<p>content</p>", "https://yt.com", 45);
       expect(updated!.title).toBe("New");
-      expect(updated!.contentHtml).toBe("<p>content</p>");
+      expect(updated!.content).toBe("<p>content</p>");
       expect(updated!.videoUrl).toBe("https://yt.com");
       expect(updated!.durationMinutes).toBe(45);
     });
@@ -156,7 +156,7 @@ describe("lessonService", () => {
 
       const result = updateLesson(lesson.id, null, null, null, null);
       expect(result!.title).toBe("Same");
-      expect(result!.contentHtml).toBe("<p>same</p>");
+      expect(result!.content).toBe("<p>same</p>");
     });
   });
 
@@ -174,7 +174,7 @@ describe("lessonService", () => {
       const lesson = createLesson(moduleId, "Title", "<p>old</p>", null, 1, null);
 
       const updated = updateLessonContent(lesson.id, "<p>new</p>");
-      expect(updated!.contentHtml).toBe("<p>new</p>");
+      expect(updated!.content).toBe("<p>new</p>");
     });
   });
 

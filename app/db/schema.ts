@@ -85,7 +85,7 @@ export const lessons = sqliteTable("lessons", {
     .notNull()
     .references(() => modules.id),
   title: text("title").notNull(),
-  contentHtml: text("content_html"),
+  content: text("content"),
   videoUrl: text("video_url"),
   position: integer("position").notNull(),
   durationMinutes: integer("duration_minutes"),

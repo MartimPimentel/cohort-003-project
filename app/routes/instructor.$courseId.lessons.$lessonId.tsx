@@ -144,14 +144,14 @@ export default function InstructorLessonEditor({
   const { course, lesson, module: mod, quiz } = loaderData;
   const fetcher = useFetcher();
 
-  const [content, setContent] = useState(lesson.contentHtml ?? "");
+  const [content, setContent] = useState(lesson.content ?? "");
   const [videoUrl, setVideoUrl] = useState(lesson.videoUrl ?? "");
   const [durationMinutes, setDurationMinutes] = useState(
     lesson.durationMinutes?.toString() ?? ""
   );
 
   const hasChanges =
-    content !== (lesson.contentHtml ?? "") ||
+    content !== (lesson.content ?? "") ||
     videoUrl !== (lesson.videoUrl ?? "") ||
     durationMinutes !== (lesson.durationMinutes?.toString() ?? "");
 

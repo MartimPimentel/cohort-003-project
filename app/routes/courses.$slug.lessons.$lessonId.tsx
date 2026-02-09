@@ -318,7 +318,7 @@ export default function LessonViewer({ loaderData }: Route.ComponentProps) {
           hljs.highlightElement(el as HTMLElement);
         });
     }
-  }, [lesson.id, lesson.contentHtml]);
+  }, [lesson.id, lesson.content]);
 
   const isMarking =
     fetcher.state !== "idle" && fetcher.formData?.get("intent") === "mark-complete";
@@ -390,15 +390,15 @@ export default function LessonViewer({ loaderData }: Route.ComponentProps) {
         )}
 
         {/* Lesson Content */}
-        {lesson.contentHtml && (
+        {lesson.content && (
           <div
             ref={contentRef}
             className="prose prose-neutral dark:prose-invert mb-8 max-w-none"
-            dangerouslySetInnerHTML={{ __html: lesson.contentHtml }}
+            dangerouslySetInnerHTML={{ __html: lesson.content }}
           />
         )}
 
-        {!lesson.contentHtml && !lesson.videoUrl && (
+        {!lesson.content && !lesson.videoUrl && (
           <Card className="mb-8">
             <CardContent className="py-12 text-center text-muted-foreground">
               No content has been added to this lesson yet.

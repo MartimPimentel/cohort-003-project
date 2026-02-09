@@ -57,7 +57,7 @@ export function createTestDb() {
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     module_id INTEGER NOT NULL REFERENCES modules(id),
     title TEXT NOT NULL,
-    content_html TEXT,
+    content TEXT,
     video_url TEXT,
     position INTEGER NOT NULL,
     duration_minutes INTEGER,

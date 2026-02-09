@@ -50,7 +50,7 @@ export function createLesson(
     .values({
       moduleId,
       title,
-      contentHtml: content,
+      content,
       videoUrl,
       position: pos,
       durationMinutes,
@@ -68,7 +68,7 @@ export function updateLesson(
 ) {
   const updates: Record<string, unknown> = {};
   if (title !== null) updates.title = title;
-  if (content !== null) updates.contentHtml = content;
+  if (content !== null) updates.content = content;
   if (videoUrl !== null) updates.videoUrl = videoUrl;
   if (durationMinutes !== null) updates.durationMinutes = durationMinutes;
 
@@ -93,10 +93,10 @@ export function updateLessonTitle(id: number, title: string) {
     .get();
 }
 
-export function updateLessonContent(id: number, contentHtml: string) {
+export function updateLessonContent(id: number, content: string) {
   return db
     .update(lessons)
-    .set({ contentHtml })
+    .set({ content })
     .where(eq(lessons.id, id))
     .returning()
     .get();
