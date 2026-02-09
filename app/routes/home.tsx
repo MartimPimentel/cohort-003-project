@@ -9,7 +9,8 @@ import { BookOpen, GraduationCap, Users, ArrowRight, User, Moon, Sun } from "luc
 import { CourseImage } from "~/components/course-image";
 import { DevUI } from "~/components/dev-ui";
 import { getAllUsers, getUserById } from "~/services/userService";
-import { getCurrentUserId } from "~/lib/session";
+import { getCurrentUserId, getDevCountry } from "~/lib/session";
+import { getCountryTierInfo, COUNTRIES } from "~/lib/ppp";
 
 export function meta({}: Route.MetaArgs) {
   return [
@@ -28,6 +29,8 @@ export async function loader({ request }: Route.LoaderArgs) {
   const users = getAllUsers();
   const currentUserId = await getCurrentUserId(request);
   const currentUser = currentUserId ? getUserById(currentUserId) : null;
+  const devCountry = await getDevCountry(request);
+  const countryTierInfo = getCountryTierInfo(devCountry);
 
   return {
     featuredCourses: featured,
@@ -37,11 +40,14 @@ export async function loader({ request }: Route.LoaderArgs) {
     currentUser: currentUser
       ? { id: currentUser.id, name: currentUser.name, role: currentUser.role }
       : null,
+    devCountry,
+    countryTierInfo,
+    countries: COUNTRIES,
   };
 }
 
 export default function Home({ loaderData }: Route.ComponentProps) {
-  const { featuredCourses, totalCourses, totalCategories, users, currentUser } = loaderData;
+  const { featuredCourses, totalCourses, totalCategories, users, currentUser, devCountry, countryTierInfo, countries } = loaderData;
   const [isDark, setIsDark] = useState(false);
 
   useEffect(() => {
@@ -203,7 +209,13 @@ export default function Home({ loaderData }: Route.ComponentProps) {
         </div>
       </footer>
 
-      <DevUI users={users} currentUser={currentUser} />
+      <DevUI
+        users={users}
+        currentUser={currentUser}
+        devCountry={devCountry}
+        countryTierInfo={countryTierInfo}
+        countries={countries}
+      />
     </div>
   );
 }

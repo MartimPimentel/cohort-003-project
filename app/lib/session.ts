@@ -30,3 +30,19 @@ export async function destroySession(request: Request) {
   const session = await getSession(request);
   return sessionStorage.destroySession(session);
 }
+
+export async function getDevCountry(request: Request): Promise<string | null> {
+  const session = await getSession(request);
+  const country = session.get("devCountry");
+  return typeof country === "string" ? country : null;
+}
+
+export async function setDevCountry(request: Request, country: string | null) {
+  const session = await getSession(request);
+  if (country) {
+    session.set("devCountry", country);
+  } else {
+    session.unset("devCountry");
+  }
+  return sessionStorage.commitSession(session);
+}

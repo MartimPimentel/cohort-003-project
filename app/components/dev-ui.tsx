@@ -3,7 +3,7 @@ import { Form, useLocation } from "react-router";
 import { Button } from "~/components/ui/button";
 import { cn } from "~/lib/utils";
 import type { UserRole } from "~/db/schema";
-import { ChevronDown, ChevronUp } from "lucide-react";
+import { ChevronDown, ChevronUp, Globe } from "lucide-react";
 
 interface DevUser {
   id: number;
@@ -14,6 +14,9 @@ interface DevUser {
 interface DevUIProps {
   users: DevUser[];
   currentUser: DevUser | null;
+  devCountry: string | null;
+  countryTierInfo: { tier: number; discount: number; label: string };
+  countries: { code: string; name: string }[];
 }
 
 const roleBadgeColors: Record<string, string> = {
@@ -37,7 +40,7 @@ function RoleBadge({ role }: { role: string }) {
   );
 }
 
-export function DevUI({ users, currentUser }: DevUIProps) {
+export function DevUI({ users, currentUser, devCountry, countryTierInfo, countries }: DevUIProps) {
   const [minimized, setMinimized] = useState(false);
   const [open, setOpen] = useState(false);
   const location = useLocation();
@@ -124,6 +127,42 @@ export function DevUI({ users, currentUser }: DevUIProps) {
                   </button>
                 </Form>
               ))}
+            </div>
+          )}
+        </div>
+
+        {/* Country Override (PPP) */}
+        <div className="mt-3 border-t border-dashed pt-3">
+          <div className="mb-2 flex items-center gap-1.5 text-xs text-muted-foreground">
+            <Globe className="size-3" />
+            PPP Country
+          </div>
+          <Form
+            method="post"
+            action={`/api/set-dev-country?redirectTo=${encodeURIComponent(location.pathname + location.search)}`}
+          >
+            <select
+              name="country"
+              defaultValue={devCountry ?? ""}
+              onChange={(e) => e.target.form?.requestSubmit()}
+              className="w-full rounded-md border bg-background px-2 py-1.5 text-sm"
+            >
+              <option value="">Auto-detect</option>
+              {countries.map((c) => (
+                <option key={c.code} value={c.code}>
+                  {c.name} ({c.code})
+                </option>
+              ))}
+            </select>
+          </Form>
+          {devCountry && (
+            <div className="mt-1.5 text-xs text-muted-foreground">
+              Tier {countryTierInfo.tier} — {countryTierInfo.label}
+              {countryTierInfo.discount > 0 && (
+                <span className="ml-1 font-medium text-green-600">
+                  ({Math.round(countryTierInfo.discount * 100)}% discount)
+                </span>
+              )}
             </div>
           )}
         </div>

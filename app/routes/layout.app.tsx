@@ -4,13 +4,16 @@ import { Sidebar } from "~/components/sidebar";
 import { DevUI } from "~/components/dev-ui";
 import { Toaster } from "sonner";
 import { getAllUsers, getUserById } from "~/services/userService";
-import { getCurrentUserId } from "~/lib/session";
+import { getCurrentUserId, getDevCountry } from "~/lib/session";
 import { getRecentlyProgressedCourses, calculateProgress, getCompletedLessonCount, getTotalLessonCount } from "~/services/progressService";
+import { getCountryTierInfo, COUNTRIES } from "~/lib/ppp";
 
 export async function loader({ request }: Route.LoaderArgs) {
   const users = getAllUsers();
   const currentUserId = await getCurrentUserId(request);
   const currentUser = currentUserId ? getUserById(currentUserId) : null;
+  const devCountry = await getDevCountry(request);
+  const countryTierInfo = getCountryTierInfo(devCountry);
 
   const recentCourses = currentUserId
     ? getRecentlyProgressedCourses(currentUserId).map((course) => {
@@ -35,11 +38,14 @@ export async function loader({ request }: Route.LoaderArgs) {
       ? { id: currentUser.id, name: currentUser.name, role: currentUser.role, avatarUrl: currentUser.avatarUrl ?? null }
       : null,
     recentCourses,
+    devCountry,
+    countryTierInfo,
+    countries: COUNTRIES,
   };
 }
 
 export default function AppLayout({ loaderData }: Route.ComponentProps) {
-  const { users, currentUser, recentCourses } = loaderData;
+  const { users, currentUser, recentCourses, devCountry, countryTierInfo, countries } = loaderData;
 
   return (
     <div className="flex h-screen overflow-hidden">
@@ -47,7 +53,13 @@ export default function AppLayout({ loaderData }: Route.ComponentProps) {
       <main className="flex-1 overflow-y-auto">
         <Outlet />
       </main>
-      <DevUI users={users} currentUser={currentUser} />
+      <DevUI
+        users={users}
+        currentUser={currentUser}
+        devCountry={devCountry}
+        countryTierInfo={countryTierInfo}
+        countries={countries}
+      />
       <Toaster position="bottom-right" richColors closeButton />
     </div>
   );
