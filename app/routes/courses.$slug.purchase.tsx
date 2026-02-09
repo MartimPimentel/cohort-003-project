@@ -53,7 +53,7 @@ export async function loader({ params, request }: Route.LoaderArgs) {
 
   const currentUserId = await getCurrentUserId(request);
   if (!currentUserId) {
-    throw data("You must be logged in to purchase a course.", { status: 401 });
+    throw redirect(`/signup?redirectTo=${encodeURIComponent(`/courses/${slug}/purchase`)}`);
   }
 
   if (isUserEnrolled(currentUserId, course.id)) {

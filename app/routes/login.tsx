@@ -1,4 +1,4 @@
-import { Form, Link, useActionData, useNavigation } from "react-router";
+import { Form, Link, useActionData, useNavigation, useSearchParams } from "react-router";
 import { redirect, data } from "react-router";
 import { z } from "zod";
 import type { Route } from "./+types/login";
@@ -28,7 +28,10 @@ export function meta() {
 export async function loader({ request }: Route.LoaderArgs) {
   const currentUserId = await getCurrentUserId(request);
   if (currentUserId) {
-    throw redirect("/courses");
+    const url = new URL(request.url);
+    const redirectTo = url.searchParams.get("redirectTo");
+    const destination = redirectTo && redirectTo.startsWith("/") ? redirectTo : "/courses";
+    throw redirect(destination);
   }
   return {};
 }
@@ -57,8 +60,12 @@ export async function action({ request }: Route.ActionArgs) {
     );
   }
 
+  const url = new URL(request.url);
+  const redirectTo = url.searchParams.get("redirectTo");
+  const destination = redirectTo && redirectTo.startsWith("/") ? redirectTo : "/courses";
+
   const cookie = await setCurrentUserId(request, user.id);
-  throw redirect("/courses", {
+  throw redirect(destination, {
     headers: { "Set-Cookie": cookie },
   });
 }
@@ -67,6 +74,8 @@ export default function Login() {
   const actionData = useActionData<typeof action>();
   const navigation = useNavigation();
   const isSubmitting = navigation.state === "submitting";
+  const [searchParams] = useSearchParams();
+  const redirectTo = searchParams.get("redirectTo");
 
   return (
     <div className="flex min-h-screen items-center justify-center bg-background p-6">
@@ -104,7 +113,7 @@ export default function Login() {
                     {actionData.errors.email}{" "}
                     {actionData.errors.email.includes("No account") && (
                       <Link
-                        to="/signup"
+                        to={redirectTo ? `/signup?redirectTo=${encodeURIComponent(redirectTo)}` : "/signup"}
                         className="font-medium text-primary hover:underline"
                       >
                         Sign up instead
@@ -128,7 +137,7 @@ export default function Login() {
         <p className="mt-4 text-center text-sm text-muted-foreground">
           Don't have an account?{" "}
           <Link
-            to="/signup"
+            to={redirectTo ? `/signup?redirectTo=${encodeURIComponent(redirectTo)}` : "/signup"}
             className="font-medium text-primary hover:underline"
           >
             Sign up

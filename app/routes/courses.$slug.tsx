@@ -160,7 +160,11 @@ export default function CourseDetail({ loaderData }: Route.ComponentProps) {
   const pppPriceLabel = formatPrice(pppPrice);
   const isDiscounted = pppPrice < course.price;
 
-  const enrollButton = currentUserId ? (
+  const enrollLink = currentUserId
+    ? `/courses/${course.slug}/purchase`
+    : `/signup?redirectTo=${encodeURIComponent(`/courses/${course.slug}/purchase`)}`;
+
+  const enrollButton = (
     <div>
       <div className="mb-3 text-center">
         {isDiscounted ? (
@@ -177,16 +181,12 @@ export default function CourseDetail({ loaderData }: Route.ComponentProps) {
           <div className="text-2xl font-bold">{pppPriceLabel}</div>
         )}
       </div>
-      <Link to={`/courses/${course.slug}/purchase`}>
+      <Link to={enrollLink}>
         <Button size="lg" className="w-full">
           Enroll Now — {pppPriceLabel}
         </Button>
       </Link>
     </div>
-  ) : (
-    <p className="text-sm text-muted-foreground">
-      Select a user from the DevUI panel to enroll.
-    </p>
   );
 
   return (

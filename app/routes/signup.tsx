@@ -1,4 +1,4 @@
-import { Form, Link, useActionData, useNavigation } from "react-router";
+import { Form, Link, useActionData, useNavigation, useSearchParams } from "react-router";
 import { redirect, data } from "react-router";
 import { z } from "zod";
 import type { Route } from "./+types/signup";
@@ -30,7 +30,10 @@ export function meta() {
 export async function loader({ request }: Route.LoaderArgs) {
   const currentUserId = await getCurrentUserId(request);
   if (currentUserId) {
-    throw redirect("/courses");
+    const url = new URL(request.url);
+    const redirectTo = url.searchParams.get("redirectTo");
+    const destination = redirectTo && redirectTo.startsWith("/") ? redirectTo : "/courses";
+    throw redirect(destination);
   }
   return {};
 }
@@ -54,11 +57,15 @@ export async function action({ request }: Route.ActionArgs) {
 
   const { name, email } = parsed.data;
 
+  const url = new URL(request.url);
+  const redirectTo = url.searchParams.get("redirectTo");
+  const destination = redirectTo && redirectTo.startsWith("/") ? redirectTo : "/courses";
+
   // If email already exists, silently log them in
   const existingUser = getUserByEmail(email);
   if (existingUser) {
     const cookie = await setCurrentUserId(request, existingUser.id);
-    throw redirect("/courses", {
+    throw redirect(destination, {
       headers: { "Set-Cookie": cookie },
     });
   }
@@ -66,7 +73,7 @@ export async function action({ request }: Route.ActionArgs) {
   // Create new user as student
   const newUser = createUser(name, email, UserRole.Student, null);
   const cookie = await setCurrentUserId(request, newUser.id);
-  throw redirect("/courses", {
+  throw redirect(destination, {
     headers: { "Set-Cookie": cookie },
   });
 }
@@ -75,6 +82,8 @@ export default function SignUp() {
   const actionData = useActionData<typeof action>();
   const navigation = useNavigation();
   const isSubmitting = navigation.state === "submitting";
+  const [searchParams] = useSearchParams();
+  const redirectTo = searchParams.get("redirectTo");
 
   return (
     <div className="flex min-h-screen items-center justify-center bg-background p-6">
@@ -149,7 +158,7 @@ export default function SignUp() {
 
         <p className="mt-4 text-center text-sm text-muted-foreground">
           Already have an account?{" "}
-          <Link to="/login" className="font-medium text-primary hover:underline">
+          <Link to={redirectTo ? `/login?redirectTo=${encodeURIComponent(redirectTo)}` : "/login"} className="font-medium text-primary hover:underline">
             Log in
           </Link>
         </p>
