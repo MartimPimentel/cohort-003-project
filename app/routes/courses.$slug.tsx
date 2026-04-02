@@ -1,5 +1,5 @@
-import { useEffect } from "react";
-import { Link, useSearchParams } from "react-router";
+import { useEffect, useState } from "react";
+import { Link, useSearchParams, useRevalidator } from "react-router";
 import { toast } from "sonner";
 import type { Route } from "./+types/courses.$slug";
 import {
@@ -33,6 +33,7 @@ import {
   Clock,
   Pencil,
   PlayCircle,
+  Star,
   Users,
 } from "lucide-react";
 import { CourseImage } from "~/components/course-image";
@@ -42,6 +43,8 @@ import { formatDuration, formatPrice } from "~/lib/utils";
 import { renderMarkdown } from "~/lib/markdown.server";
 import { resolveCountry } from "~/lib/country.server";
 import { calculatePppPrice, getCountryTierInfo } from "~/lib/ppp";
+import { getAverageRating, getReviewByUserAndCourse } from "~/services/reviewService";
+import { StarRatingDisplay, StarRatingInput } from "~/components/star-rating";
 
 export function meta({ data: loaderData }: Route.MetaArgs) {
   const title = loaderData?.course?.title ?? "Course";
@@ -102,6 +105,12 @@ export async function loader({ params, request }: Route.LoaderArgs) {
     : courseWithDetails.price;
   const tierInfo = getCountryTierInfo(country);
 
+  const { average: averageRating, count: ratingCount } = getAverageRating(course.id);
+  const userReview =
+    currentUserId && enrolled
+      ? getReviewByUserAndCourse(currentUserId, course.id)
+      : undefined;
+
   return {
     course: courseWithDetails,
     salesCopyHtml,
@@ -113,6 +122,9 @@ export async function loader({ params, request }: Route.LoaderArgs) {
     currentUserId,
     pppPrice,
     tierInfo,
+    averageRating,
+    ratingCount,
+    userReview,
   };
 }
 
@@ -181,9 +193,14 @@ export default function CourseDetail({ loaderData }: Route.ComponentProps) {
     currentUserId,
     pppPrice,
     tierInfo,
+    averageRating,
+    ratingCount,
+    userReview,
   } = loaderData;
   const isInstructor = currentUserId === course.instructorId;
   const [searchParams, setSearchParams] = useSearchParams();
+  const { revalidate } = useRevalidator();
+  const [isRating, setIsRating] = useState(false);
 
   useEffect(() => {
     if (searchParams.get("already_enrolled") === "1") {
@@ -321,6 +338,9 @@ export default function CourseDetail({ loaderData }: Route.ComponentProps) {
             </span>
           )}
         </div>
+        <div className="mt-3">
+          <StarRatingDisplay average={averageRating} count={ratingCount} />
+        </div>
       </div>
 
       {/* Two-column: sales copy left, sidebar right */}
@@ -413,6 +433,57 @@ export default function CourseDetail({ loaderData }: Route.ComponentProps) {
                       Buy More Seats
                     </Button>
                   </Link>
+                  <div className="pt-2">
+                    {userReview ? (
+                      <div className="flex items-center gap-2 text-sm">
+                        <span className="font-medium text-foreground">Your rating:</span>
+                        <div className="flex items-center">
+                          {[1, 2, 3, 4, 5].map((s) => (
+                            <Star
+                              key={s}
+                              className={
+                                s <= userReview.rating
+                                  ? "size-4 fill-yellow-400 text-yellow-400"
+                                  : "size-4 text-muted-foreground"
+                              }
+                            />
+                          ))}
+                        </div>
+                      </div>
+                    ) : (
+                      <div>
+                        <p className="mb-2 text-sm font-medium">Rate this course</p>
+                        <StarRatingInput
+                          disabled={isRating}
+                          onRate={async (rating) => {
+                            if (isRating) return;
+                            setIsRating(true);
+                            try {
+                              const res = await fetch("/api/course-review", {
+                                method: "POST",
+                                headers: { "Content-Type": "application/json" },
+                                body: JSON.stringify({ courseId: course.id, rating }),
+                              });
+                              if (!res.ok) {
+                                const body = await res.json().catch(() => null);
+                                toast.error(body?.error ?? "Failed to submit rating");
+                                setIsRating(false);
+                                return;
+                              }
+                              toast.success("Thanks for rating this course!");
+                              revalidate();
+                            } catch {
+                              toast.error("Failed to submit rating. Please try again.");
+                              setIsRating(false);
+                            }
+                          }}
+                        />
+                        {isRating && (
+                          <p className="mt-1 text-xs text-muted-foreground">Submitting...</p>
+                        )}
+                      </div>
+                    )}
+                  </div>
                 </>
               ) : (
                 enrollButton
