@@ -1,5 +1,5 @@
-import { useState } from "react";
-import { Form, useLocation } from "react-router";
+import { useEffect, useState } from "react";
+import { Form, useLocation, useNavigation } from "react-router";
 import { Button } from "~/components/ui/button";
 import { cn } from "~/lib/utils";
 import type { UserRole } from "~/db/schema";
@@ -44,6 +44,13 @@ export function DevUI({ users, currentUser, devCountry, countryTierInfo, countri
   const [minimized, setMinimized] = useState(false);
   const [open, setOpen] = useState(false);
   const location = useLocation();
+  const navigation = useNavigation();
+
+  useEffect(() => {
+    if (navigation.state !== "idle") {
+      setOpen(false);
+    }
+  }, [navigation.state]);
   if (minimized) {
     return (
       <div className="fixed bottom-4 right-4 z-50">
@@ -108,6 +115,20 @@ export function DevUI({ users, currentUser, devCountry, countryTierInfo, countri
 
           {open && (
             <div className="absolute bottom-full mb-1 max-h-64 w-full overflow-y-auto rounded-md border bg-popover shadow-md">
+              <Form
+                method="post"
+                action={`/api/logout?redirectTo=${encodeURIComponent(location.pathname + location.search)}`}
+              >
+                <button
+                  type="submit"
+                  className={cn(
+                    "flex w-full items-center gap-2 px-3 py-2 text-left text-sm hover:bg-accent border-b",
+                    !currentUser && "bg-accent"
+                  )}
+                >
+                  <span className="flex-1 truncate italic text-muted-foreground">No user (logged out)</span>
+                </button>
+              </Form>
               {users.map((user) => (
                 <Form
                   key={user.id}
