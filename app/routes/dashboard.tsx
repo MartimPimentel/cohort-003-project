@@ -9,6 +9,8 @@ import { Skeleton } from "~/components/ui/skeleton";
 import { AlertTriangle, BookOpen, CheckCircle2, GraduationCap, PlayCircle } from "lucide-react";
 import { CourseImage } from "~/components/course-image";
 import { data, isRouteErrorResponse } from "react-router";
+import { getAverageRatingsForCourses } from "~/services/reviewService";
+import { StarRatingDisplay } from "~/components/star-rating";
 
 export function meta() {
   return [
@@ -28,6 +30,8 @@ export async function loader({ request }: Route.LoaderArgs) {
 
   const enrolledCourses = getUserEnrolledCourses(currentUserId);
 
+  const ratingsMap = getAverageRatingsForCourses(enrolledCourses.map((e) => e.courseId));
+
   const coursesWithProgress = enrolledCourses.map((enrollment) => {
     const progress = calculateProgress(
       currentUserId,
@@ -45,6 +49,7 @@ export async function loader({ request }: Route.LoaderArgs) {
       enrollment.courseId
     );
     const isCompleted = enrollment.completedAt !== null;
+    const rating = ratingsMap.get(enrollment.courseId);
 
     return {
       ...enrollment,
@@ -53,6 +58,8 @@ export async function loader({ request }: Route.LoaderArgs) {
       totalLessons,
       nextLessonId: nextLesson?.id ?? null,
       isCompleted,
+      averageRating: rating?.average ?? null,
+      ratingCount: rating?.count ?? 0,
     };
   });
 
@@ -175,6 +182,9 @@ export default function Dashboard({ loaderData }: Route.ComponentProps) {
                           style={{ width: `${course.progress}%` }}
                         />
                       </div>
+                      <div className="mt-2">
+                        <StarRatingDisplay average={course.averageRating} count={course.ratingCount} />
+                      </div>
                     </CardContent>
                     <CardFooter>
                       {course.nextLessonId ? (
@@ -239,6 +249,9 @@ export default function Dashboard({ loaderData }: Route.ComponentProps) {
                         <span>
                           Completed — {course.totalLessons} lessons
                         </span>
+                      </div>
+                      <div className="mt-2">
+                        <StarRatingDisplay average={course.averageRating} count={course.ratingCount} />
                       </div>
                     </CardContent>
                     <CardFooter>

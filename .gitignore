@@ -17,3 +17,5 @@
 # JetBrains
 /.idea/
 
+docs/
+.playwright-cli/

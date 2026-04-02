@@ -2,6 +2,8 @@ import Database from "better-sqlite3";
 import { drizzle } from "drizzle-orm/better-sqlite3";
 import { migrate } from "drizzle-orm/better-sqlite3/migrator";
 import path from "path";
+import fs from "fs";
+import os from "os";
 import { fileURLToPath } from "url";
 import * as schema from "~/db/schema";
 
@@ -26,6 +28,33 @@ export function createTestDb() {
   migrate(testDb, { migrationsFolder });
 
   return testDb;
+}
+
+/**
+ * Creates a file-based SQLite test database in a temp directory.
+ * Sets TEST_DB_PATH so that `~/db` uses this file instead of `data.db`.
+ * Returns the db instance and a cleanup function to delete the temp file.
+ */
+export function createFileTestDb() {
+  const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "cadence-test-"));
+  const dbPath = path.join(tmpDir, "test.db");
+
+  process.env.TEST_DB_PATH = dbPath;
+
+  const sqlite = new Database(dbPath);
+  sqlite.pragma("journal_mode = WAL");
+  sqlite.pragma("foreign_keys = ON");
+
+  const testDb = drizzle(sqlite, { schema });
+  migrate(testDb, { migrationsFolder });
+
+  const cleanup = () => {
+    sqlite.close();
+    fs.rmSync(tmpDir, { recursive: true, force: true });
+    delete process.env.TEST_DB_PATH;
+  };
+
+  return { db: testDb, dbPath, cleanup };
 }
 
 /**
