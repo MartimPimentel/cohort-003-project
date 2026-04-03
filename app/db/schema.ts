@@ -4,6 +4,7 @@ import {
   integer,
   real,
   uniqueIndex,
+  index,
 } from "drizzle-orm/sqlite-core";
 
 export enum UserRole {
@@ -282,3 +283,30 @@ export const videoWatchEvents = sqliteTable("video_watch_events", {
     .notNull()
     .$defaultFn(() => new Date().toISOString()),
 });
+
+export const lessonComments = sqliteTable(
+  "lesson_comments",
+  {
+    id: integer("id").primaryKey({ autoIncrement: true }),
+    lessonId: integer("lesson_id")
+      .notNull()
+      .references(() => lessons.id),
+    userId: integer("user_id")
+      .notNull()
+      .references(() => users.id),
+    // No FK reference on parentId — intentionally omitted so soft-deleted parent
+    // rows can be hard-deleted during ghost cleanup without FK constraint violations.
+    // Nesting depth is enforced in application logic (commentService.ts).
+    parentId: integer("parent_id"),
+    content: text("content").notNull(),
+    isDeleted: integer("is_deleted", { mode: "boolean" }).notNull().default(false),
+    editedAt: text("edited_at"),
+    createdAt: text("created_at")
+      .notNull()
+      .$defaultFn(() => new Date().toISOString()),
+  },
+  (table) => [
+    index("lesson_comments_lesson_created_idx").on(table.lessonId, table.createdAt),
+    index("lesson_comments_parent_idx").on(table.parentId),
+  ]
+);

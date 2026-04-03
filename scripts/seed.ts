@@ -46,6 +46,8 @@ async function seed() {
   // Drop and recreate tables for a clean seed
   sqlite.exec(`
     DROP TABLE IF EXISTS video_watch_events;
+    DROP TABLE IF EXISTS lesson_comments;
+    DROP TABLE IF EXISTS course_reviews;
     DROP TABLE IF EXISTS quiz_answers;
     DROP TABLE IF EXISTS quiz_attempts;
     DROP TABLE IF EXISTS quiz_options;
@@ -1725,6 +1727,112 @@ You've completed the Building REST APIs course. You now have the skills to build
 
   console.log(
     `Created 1 team with Bossy McBossface as admin, 1 team purchase, and ${seededCoupons.length} coupons (2 redeemed, 3 available).`
+  );
+
+  // ─── Lesson Comments ───
+
+  // Top-level comments on lesson 1 of course 1
+  const [comment1] = db
+    .insert(schema.lessonComments)
+    .values({
+      lessonId: course1LessonIds[0],
+      userId: students[0].id,
+      content: "This lesson really helped me understand the basics. The examples were clear and easy to follow!",
+      createdAt: daysAgo(10),
+    })
+    .returning()
+    .all();
+
+  const [comment2] = db
+    .insert(schema.lessonComments)
+    .values({
+      lessonId: course1LessonIds[0],
+      userId: students[1].id,
+      content: "I'm a bit confused about the second part. Could someone explain the difference between the two approaches?",
+      createdAt: daysAgo(9),
+    })
+    .returning()
+    .all();
+
+  // Instructor reply to comment2
+  db.insert(schema.lessonComments)
+    .values({
+      lessonId: course1LessonIds[0],
+      userId: instructor1.id,
+      parentId: comment2.id,
+      content: "Great question! The first approach is simpler but less flexible. The second approach uses composition which makes it easier to extend later. I'd recommend starting with the first and refactoring when needed.",
+      createdAt: daysAgo(8),
+    })
+    .run();
+
+  // Student reply to comment2
+  db.insert(schema.lessonComments)
+    .values({
+      lessonId: course1LessonIds[0],
+      userId: students[2].id,
+      parentId: comment2.id,
+      content: "Thanks for asking this — I had the same question!",
+      createdAt: daysAgo(8),
+    })
+    .run();
+
+  // A soft-deleted comment with replies preserved
+  const [deletedComment] = db
+    .insert(schema.lessonComments)
+    .values({
+      lessonId: course1LessonIds[0],
+      userId: students[3].id,
+      content: "I think this approach might be wrong, but I'm not sure anymore.",
+      isDeleted: true,
+      createdAt: daysAgo(7),
+    })
+    .returning()
+    .all();
+
+  db.insert(schema.lessonComments)
+    .values({
+      lessonId: course1LessonIds[0],
+      userId: students[0].id,
+      parentId: deletedComment.id,
+      content: "I agree with the point made here, very insightful.",
+      createdAt: daysAgo(6),
+    })
+    .run();
+
+  // Comment on a different lesson (lesson 2 of course 1)
+  const [comment3] = db
+    .insert(schema.lessonComments)
+    .values({
+      lessonId: course1LessonIds[1],
+      userId: students[0].id,
+      content: "The video quality in this lesson is excellent. Would love to see more advanced topics covered too.",
+      createdAt: daysAgo(5),
+    })
+    .returning()
+    .all();
+
+  db.insert(schema.lessonComments)
+    .values({
+      lessonId: course1LessonIds[1],
+      userId: students[2].id,
+      parentId: comment3.id,
+      content: "Agreed! Especially the section on error handling patterns.",
+      createdAt: daysAgo(4),
+    })
+    .run();
+
+  // Comment on course 2 lesson
+  db.insert(schema.lessonComments)
+    .values({
+      lessonId: course2LessonIds[0],
+      userId: students[2].id,
+      content: "Marcus is an amazing instructor. This course is exactly what I needed for my project.",
+      createdAt: daysAgo(3),
+    })
+    .run();
+
+  console.log(
+    "Created lesson comments: 5 top-level + 4 replies (including 1 soft-deleted)."
   );
 
   console.log("\n✓ Seed complete!");

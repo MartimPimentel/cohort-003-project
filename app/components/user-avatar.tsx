@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { cn } from "~/lib/utils";
 
 export function UserAvatar({
@@ -9,6 +10,8 @@ export function UserAvatar({
   avatarUrl: string | null;
   className?: string;
 }) {
+  const [imgError, setImgError] = useState(false);
+
   const initials = name
     .split(" ")
     .map((n) => n[0])
@@ -16,11 +19,12 @@ export function UserAvatar({
     .slice(0, 2)
     .toUpperCase();
 
-  if (avatarUrl) {
+  if (avatarUrl && !imgError) {
     return (
       <img
         src={avatarUrl}
         alt={name}
+        onError={() => setImgError(true)}
         className={cn("size-8 rounded-full object-cover", className)}
       />
     );
@@ -28,8 +32,10 @@ export function UserAvatar({
 
   return (
     <div
+      role="img"
+      aria-label={`${name}'s avatar`}
       className={cn(
-        "flex size-8 items-center justify-center rounded-full bg-muted text-xs font-medium text-muted-foreground",
+        "flex size-8 items-center justify-center rounded-full bg-primary/15 text-xs font-semibold text-primary",
         className
       )}
     >
