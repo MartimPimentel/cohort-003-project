@@ -1,0 +1,1 @@
+CREATE INDEX `lesson_comments_parent_idx` ON `lesson_comments` (`parent_id`);

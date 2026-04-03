@@ -55,6 +55,11 @@ import { resolveCountry } from "~/lib/country.server";
 import { checkPppAccess, COUNTRIES } from "~/lib/ppp";
 import { findPurchase } from "~/services/purchaseService";
 import { parseFormData, parseParams } from "~/lib/validation";
+import {
+  getCommentsForLesson,
+  getTopLevelCommentCount,
+} from "~/services/commentService";
+import { CommentsSection } from "~/components/comments-section";
 
 const lessonParamsSchema = z.object({
   slug: z.string().min(1),
@@ -134,6 +139,7 @@ export async function loader({ params, request }: Route.LoaderArgs) {
 
   const currentUserId = await getCurrentUserId(request);
   let enrolled = false;
+  let isInstructor = false;
   let lessonStatus: string | null = null;
   let lastWatchPosition = 0;
   let watchProgress = 0;
@@ -141,6 +147,7 @@ export async function loader({ params, request }: Route.LoaderArgs) {
 
   if (currentUserId) {
     enrolled = isUserEnrolled(currentUserId, course.id);
+    isInstructor = currentUserId === course.instructorId;
 
     if (enrolled) {
       // Mark lesson as in-progress when viewed
@@ -189,6 +196,15 @@ export async function loader({ params, request }: Route.LoaderArgs) {
     pppBlocked = pppResult.blocked;
     pppBlockedCountry = pppResult.blockedCountry;
     pppPurchaseCountry = pppResult.purchaseCountry;
+  }
+
+  // Comments
+  let comments: Awaited<ReturnType<typeof getCommentsForLesson>> = [];
+  let totalTopLevelCount = 0;
+
+  if (enrolled || isInstructor) {
+    comments = getCommentsForLesson(lessonId, 20, 0);
+    totalTopLevelCount = getTopLevelCommentCount(lessonId);
   }
 
   // Render lesson content from Markdown to HTML server-side
@@ -281,6 +297,10 @@ export async function loader({ params, request }: Route.LoaderArgs) {
     pppBlocked,
     pppBlockedCountry,
     pppPurchaseCountry,
+    comments,
+    totalTopLevelCount,
+    isInstructor,
+    courseInstructorId: course.instructorId,
   };
 }
 
@@ -382,6 +402,10 @@ export default function LessonViewer({ loaderData }: Route.ComponentProps) {
     pppBlocked,
     pppBlockedCountry,
     pppPurchaseCountry,
+    comments,
+    totalTopLevelCount,
+    isInstructor,
+    courseInstructorId,
   } = loaderData;
   const [autoplay, toggleAutoplay] = useAutoplay();
   const fetcher = useFetcher({ key: `mark-complete-${lesson.id}` });
@@ -639,6 +663,18 @@ export default function LessonViewer({ loaderData }: Route.ComponentProps) {
               </Link>
             )}
           </div>
+
+          {/* Comments Section */}
+          {(enrolled || isInstructor) && currentUserId && (
+            <CommentsSection
+              lessonId={lesson.id}
+              courseInstructorId={courseInstructorId}
+              currentUserId={currentUserId}
+              comments={comments}
+              totalTopLevelCount={totalTopLevelCount}
+              isInstructor={isInstructor}
+            />
+          )}
         </div>
       </div>
     </div>
