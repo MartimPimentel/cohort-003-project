@@ -1,5 +1,5 @@
 import { data } from "react-router";
-import { z } from "zod";
+import * as v from "valibot";
 import type { Route } from "./+types/api.lesson-comment";
 import { getCurrentUserId } from "~/lib/session";
 import {
@@ -16,10 +16,13 @@ import { getCourseById } from "~/services/courseService";
 import { isUserEnrolled } from "~/services/enrollmentService";
 import { parseJsonBody } from "~/lib/validation";
 
-const loaderParamsSchema = z.object({
-  lessonId: z.coerce.number().int().positive(),
-  limit: z.coerce.number().int().min(1).max(50).default(20),
-  offset: z.coerce.number().int().min(0).default(0),
+const loaderParamsSchema = v.object({
+  lessonId: v.pipe(v.unknown(), v.toNumber(), v.integer(), v.gtValue(0)),
+  limit: v.optional(
+    v.pipe(v.unknown(), v.toNumber(), v.integer(), v.minValue(1), v.maxValue(50)),
+    20
+  ),
+  offset: v.optional(v.pipe(v.unknown(), v.toNumber(), v.integer(), v.minValue(0)), 0),
 });
 
 export async function loader({ request }: Route.LoaderArgs) {
@@ -29,7 +32,7 @@ export async function loader({ request }: Route.LoaderArgs) {
   }
 
   const url = new URL(request.url);
-  const params = loaderParamsSchema.safeParse({
+  const params = v.safeParse(loaderParamsSchema, {
     lessonId: url.searchParams.get("lessonId"),
     limit: url.searchParams.get("limit") ?? undefined,
     offset: url.searchParams.get("offset") ?? undefined,
@@ -39,7 +42,7 @@ export async function loader({ request }: Route.LoaderArgs) {
     throw data("Invalid parameters", { status: 400 });
   }
 
-  const { lessonId, limit, offset } = params.data;
+  const { lessonId, limit, offset } = params.output;
 
   // Resolve lesson → module → course for auth check
   const lesson = getLessonById(lessonId);
@@ -68,25 +71,25 @@ export async function loader({ request }: Route.LoaderArgs) {
   return { comments, totalTopLevelCount };
 }
 
-const createSchema = z.object({
-  intent: z.literal("create"),
-  lessonId: z.number(),
-  content: z.string().transform(s => s.trim()).pipe(z.string().min(1).max(500)),
-  parentId: z.number().nullable().optional(),
+const createSchema = v.object({
+  intent: v.literal("create"),
+  lessonId: v.number(),
+  content: v.pipe(v.string(), v.trim(), v.minLength(1), v.maxLength(500)),
+  parentId: v.optional(v.nullable(v.number())),
 });
 
-const editSchema = z.object({
-  intent: z.literal("edit"),
-  commentId: z.number(),
-  content: z.string().transform(s => s.trim()).pipe(z.string().min(1).max(500)),
+const editSchema = v.object({
+  intent: v.literal("edit"),
+  commentId: v.number(),
+  content: v.pipe(v.string(), v.trim(), v.minLength(1), v.maxLength(500)),
 });
 
-const deleteSchema = z.object({
-  intent: z.literal("delete"),
-  commentId: z.number(),
+const deleteSchema = v.object({
+  intent: v.literal("delete"),
+  commentId: v.number(),
 });
 
-const commentActionSchema = z.discriminatedUnion("intent", [
+const commentActionSchema = v.variant("intent", [
   createSchema,
   editSchema,
   deleteSchema,
