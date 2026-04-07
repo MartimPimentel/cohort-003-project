@@ -2,17 +2,18 @@
 source <(sed -n '/^claude-sandbox/,/^}/p' ~/.zshrc)
 set -eo pipefail
 
-if [ -z "$1" ] || [ -z "$2" ]; then
-  echo "Usage: $0 <plan-and-prd> <iterations>"
+if [ -z "$1" ]; then
+  echo "Usage: $0 <iterations>"
   exit 1
 fi
 
-for ((i=1; i<=$2; i++)); do
+for ((i=1; i<=$1; i++)); do
   tmpfile=$(mktemp)
   trap "rm -f $tmpfile" EXIT
 
-  echo "\n=== Iteration $i / $2 ==="
+  echo "\n=== Iteration $i / $1 ==="
   commits=$(git log -n 5 --format="%H%n%ad%n%B---" --date=short 2>/dev/null || echo "No commits found")
+  issues=$(gh issue list --state open --json number,title,body,comments)
   prompt=$(cat ralph/prompt.md)
 
   claude-sandbox \
@@ -20,7 +21,7 @@ for ((i=1; i<=$2; i++)); do
     --verbose \
     --print \
     --output-format stream-json \
-    "Previous commits: $commits Plan and PRD: $1 $prompt" \
+    "Previous commits: $commits $issues $prompt" \
   < /dev/null 2>&1 \
   | grep --line-buffered '^{' \
   | tee "$tmpfile" \
