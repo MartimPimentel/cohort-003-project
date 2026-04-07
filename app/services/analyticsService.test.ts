@@ -16,6 +16,7 @@ import {
   getAdminTotalEnrollments,
   getAdminTopCourse,
   getAdminAnalyticsSummary,
+  getAdminRevenueTimeSeries,
 } from "./analyticsService";
 
 const OLD_DATE = "2020-01-01T00:00:00.000Z";
@@ -284,6 +285,106 @@ describe("analyticsService", () => {
 
       const top = getAdminTopCourse({ period: "7d" });
       expect(top).toBeNull();
+    });
+  });
+
+  // ─── getAdminRevenueTimeSeries ───
+
+  describe("getAdminRevenueTimeSeries", () => {
+    it("returns empty array for 'all' period when there are no purchases", () => {
+      expect(getAdminRevenueTimeSeries({ period: "all" })).toEqual([]);
+    });
+
+    it("returns 7 data points for '7d' period", () => {
+      const result = getAdminRevenueTimeSeries({ period: "7d" });
+      expect(result).toHaveLength(7);
+    });
+
+    it("returns 30 data points for '30d' period", () => {
+      const result = getAdminRevenueTimeSeries({ period: "30d" });
+      expect(result).toHaveLength(30);
+    });
+
+    it("returns 12 data points for '12m' period", () => {
+      const result = getAdminRevenueTimeSeries({ period: "12m" });
+      expect(result).toHaveLength(12);
+    });
+
+    it("all data points default to 0 revenue with no purchases", () => {
+      const result = getAdminRevenueTimeSeries({ period: "7d" });
+      expect(result.every((p) => p.revenue === 0)).toBe(true);
+    });
+
+    it("includes revenue for matching purchase in '7d' period", () => {
+      testDb
+        .insert(schema.purchases)
+        .values({
+          userId: base.user.id,
+          courseId: base.course.id,
+          pricePaid: 4999,
+          country: null,
+          createdAt: RECENT_DATE,
+        })
+        .run();
+
+      const result = getAdminRevenueTimeSeries({ period: "7d" });
+      const total = result.reduce((sum, p) => sum + p.revenue, 0);
+      expect(total).toBe(4999);
+    });
+
+    it("excludes purchases outside the 7d window from time series", () => {
+      testDb
+        .insert(schema.purchases)
+        .values({
+          userId: base.user.id,
+          courseId: base.course.id,
+          pricePaid: 4999,
+          country: null,
+          createdAt: OLD_DATE,
+        })
+        .run();
+
+      const result = getAdminRevenueTimeSeries({ period: "7d" });
+      const total = result.reduce((sum, p) => sum + p.revenue, 0);
+      expect(total).toBe(0);
+    });
+
+    it("uses daily labels (YYYY-MM-DD) for '7d' period", () => {
+      const result = getAdminRevenueTimeSeries({ period: "7d" });
+      expect(result[0].label).toMatch(/^\d{4}-\d{2}-\d{2}$/);
+    });
+
+    it("uses monthly labels (YYYY-MM) for '12m' period", () => {
+      const result = getAdminRevenueTimeSeries({ period: "12m" });
+      expect(result[0].label).toMatch(/^\d{4}-\d{2}$/);
+    });
+
+    it("aggregates multiple purchases on the same day into one data point", () => {
+      testDb
+        .insert(schema.purchases)
+        .values({
+          userId: base.user.id,
+          courseId: base.course.id,
+          pricePaid: 1000,
+          country: null,
+          createdAt: RECENT_DATE,
+        })
+        .run();
+      testDb
+        .insert(schema.purchases)
+        .values({
+          userId: base.instructor.id,
+          courseId: base.course.id,
+          pricePaid: 2000,
+          country: null,
+          createdAt: RECENT_DATE,
+        })
+        .run();
+
+      const result = getAdminRevenueTimeSeries({ period: "7d" });
+      const today = RECENT_DATE.slice(0, 10);
+      const todayPoint = result.find((p) => p.label === today);
+      expect(todayPoint?.revenue).toBe(3000);
     });
   });
 
