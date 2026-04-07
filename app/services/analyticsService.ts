@@ -1,6 +1,12 @@
 import { gte, eq, sql } from "drizzle-orm";
 import { db } from "~/db";
-import { purchases, enrollments, courses } from "~/db/schema";
+import {
+  purchases,
+  enrollments,
+  courses,
+  users,
+  courseReviews,
+} from "~/db/schema";
 
 // ─── Analytics Service ───
 // Platform-wide analytics aggregations for the admin dashboard.
@@ -148,4 +154,90 @@ export function getAdminRevenueTimeSeries({
   }
 
   return slots.map((slot) => ({ label: slot, revenue: lookup.get(slot) ?? 0 }));
+}
+
+export type CourseBreakdownRow = {
+  courseId: number;
+  title: string;
+  instructorId: number;
+  instructorName: string;
+  listPrice: number;
+  revenue: number;
+  sales: number;
+  enrollments: number;
+  avgRating: number | null;
+};
+
+export function getAdminCourseBreakdown({
+  period,
+  instructorId,
+}: {
+  period: TimePeriod;
+  instructorId?: number;
+}): CourseBreakdownRow[] {
+  const cutoff = getPeriodCutoff(period);
+
+  const purchaseSq = db
+    .select({
+      courseId: purchases.courseId,
+      revenue: sql<number>`coalesce(sum(${purchases.pricePaid}), 0)`.as(
+        "revenue"
+      ),
+      sales: sql<number>`count(*)`.as("sales"),
+    })
+    .from(purchases)
+    .where(cutoff ? gte(purchases.createdAt, cutoff) : undefined)
+    .groupBy(purchases.courseId)
+    .as("purchase_agg");
+
+  const enrollmentSq = db
+    .select({
+      courseId: enrollments.courseId,
+      count: sql<number>`count(*)`.as("count"),
+    })
+    .from(enrollments)
+    .where(cutoff ? gte(enrollments.enrolledAt, cutoff) : undefined)
+    .groupBy(enrollments.courseId)
+    .as("enrollment_agg");
+
+  const ratingSq = db
+    .select({
+      courseId: courseReviews.courseId,
+      avgRating: sql<number | null>`avg(${courseReviews.rating})`.as(
+        "avg_rating"
+      ),
+    })
+    .from(courseReviews)
+    .groupBy(courseReviews.courseId)
+    .as("rating_agg");
+
+  return db
+    .select({
+      courseId: courses.id,
+      title: courses.title,
+      instructorId: courses.instructorId,
+      instructorName: users.name,
+      listPrice: courses.price,
+      revenue: sql<number>`coalesce(${purchaseSq.revenue}, 0)`,
+      sales: sql<number>`coalesce(${purchaseSq.sales}, 0)`,
+      enrollments: sql<number>`coalesce(${enrollmentSq.count}, 0)`,
+      avgRating: ratingSq.avgRating,
+    })
+    .from(courses)
+    .innerJoin(users, eq(courses.instructorId, users.id))
+    .leftJoin(purchaseSq, eq(courses.id, purchaseSq.courseId))
+    .leftJoin(enrollmentSq, eq(courses.id, enrollmentSq.courseId))
+    .leftJoin(ratingSq, eq(courses.id, ratingSq.courseId))
+    .where(instructorId ? eq(courses.instructorId, instructorId) : undefined)
+    .orderBy(sql`coalesce(${purchaseSq.revenue}, 0) desc`)
+    .all();
+}
+
+export function getAdminInstructors(): { id: number; name: string }[] {
+  return db
+    .selectDistinct({ id: users.id, name: users.name })
+    .from(courses)
+    .innerJoin(users, eq(courses.instructorId, users.id))
+    .orderBy(users.name)
+    .all();
 }

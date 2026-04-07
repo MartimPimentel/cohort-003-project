@@ -5,6 +5,8 @@ import { getUserById } from "~/services/userService";
 import {
   getAdminAnalyticsSummary,
   getAdminRevenueTimeSeries,
+  getAdminCourseBreakdown,
+  getAdminInstructors,
   type TimePeriod,
 } from "~/services/analyticsService";
 import {
@@ -23,6 +25,7 @@ import { Skeleton } from "~/components/ui/skeleton";
 import {
   AlertTriangle,
   BarChart3,
+  BookOpen,
   TrendingUp,
   Users,
   Trophy,
@@ -66,10 +69,24 @@ export async function loader({ request }: Route.LoaderArgs) {
     ? (rawPeriod as TimePeriod)
     : "30d";
 
+  const rawInstructor = url.searchParams.get("instructor");
+  const instructorId = rawInstructor
+    ? parseInt(rawInstructor, 10) || undefined
+    : undefined;
+
   const summary = getAdminAnalyticsSummary({ period });
   const timeSeries = getAdminRevenueTimeSeries({ period });
+  const courseBreakdown = getAdminCourseBreakdown({ period, instructorId });
+  const instructors = getAdminInstructors();
 
-  return { summary, period, timeSeries };
+  return {
+    summary,
+    period,
+    timeSeries,
+    courseBreakdown,
+    instructors,
+    instructorId,
+  };
 }
 
 export function HydrateFallback() {
@@ -102,6 +119,15 @@ export function HydrateFallback() {
             <Skeleton className="h-[280px] w-full" />
           </CardContent>
         </Card>
+        <Card>
+          <CardHeader className="pb-2">
+            <Skeleton className="h-4 w-40" />
+          </CardHeader>
+          <CardContent>
+            <Skeleton className="mb-4 h-9 w-48" />
+            <Skeleton className="h-[200px] w-full" />
+          </CardContent>
+        </Card>
       </div>
     </div>
   );
@@ -118,8 +144,125 @@ function formatTooltipLabel(cents: unknown) {
   return formatPrice(value);
 }
 
+type CourseBreakdownTableProps = {
+  rows: {
+    courseId: number;
+    title: string;
+    instructorId: number;
+    instructorName: string;
+    listPrice: number;
+    revenue: number;
+    sales: number;
+    enrollments: number;
+    avgRating: number | null;
+  }[];
+  instructors: { id: number; name: string }[];
+  instructorId: number | undefined;
+  period: TimePeriod;
+};
+
+function CourseBreakdownTable({
+  rows,
+  instructors,
+  instructorId,
+  period,
+}: CourseBreakdownTableProps) {
+  return (
+    <Card>
+      <CardHeader>
+        <span className="text-sm font-medium text-muted-foreground">
+          Course Breakdown
+        </span>
+      </CardHeader>
+      <CardContent>
+        {/* Instructor filter */}
+        {instructors.length > 0 && (
+          <form method="get" className="mb-4">
+            <input type="hidden" name="period" value={period} />
+            <select
+              name="instructor"
+              defaultValue={instructorId ?? ""}
+              onChange={(e) => e.currentTarget.form?.submit()}
+              className="rounded-md border border-input bg-background px-3 py-1.5 text-sm shadow-sm focus:outline-none focus:ring-1 focus:ring-ring"
+            >
+              <option value="">All Instructors</option>
+              {instructors.map((i) => (
+                <option key={i.id} value={i.id}>
+                  {i.name}
+                </option>
+              ))}
+            </select>
+          </form>
+        )}
+
+        {rows.length === 0 ? (
+          <div className="flex flex-col items-center justify-center py-10 text-center">
+            <BookOpen className="mb-3 size-8 text-muted-foreground/50" />
+            <p className="text-sm text-muted-foreground">No courses found.</p>
+          </div>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="border-b text-left text-xs text-muted-foreground">
+                  <th className="pb-2 pr-4 font-medium">Course</th>
+                  <th className="pb-2 pr-4 font-medium">Instructor</th>
+                  <th className="pb-2 pr-4 text-right font-medium">
+                    List Price
+                  </th>
+                  <th className="pb-2 pr-4 text-right font-medium">Revenue</th>
+                  <th className="pb-2 pr-4 text-right font-medium">Sales</th>
+                  <th className="pb-2 pr-4 text-right font-medium">
+                    Enrollments
+                  </th>
+                  <th className="pb-2 text-right font-medium">Avg Rating</th>
+                </tr>
+              </thead>
+              <tbody>
+                {rows.map((row) => (
+                  <tr
+                    key={row.courseId}
+                    className="border-b last:border-0 hover:bg-muted/30"
+                  >
+                    <td className="py-3 pr-4 font-medium">{row.title}</td>
+                    <td className="py-3 pr-4 text-muted-foreground">
+                      {row.instructorName}
+                    </td>
+                    <td className="py-3 pr-4 text-right tabular-nums">
+                      {formatPrice(row.listPrice)}
+                    </td>
+                    <td className="py-3 pr-4 text-right tabular-nums">
+                      {formatPrice(row.revenue)}
+                    </td>
+                    <td className="py-3 pr-4 text-right tabular-nums">
+                      {row.sales.toLocaleString()}
+                    </td>
+                    <td className="py-3 pr-4 text-right tabular-nums">
+                      {row.enrollments.toLocaleString()}
+                    </td>
+                    <td className="py-3 text-right tabular-nums">
+                      {row.avgRating !== null ? row.avgRating.toFixed(1) : "—"}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
+
 export default function AdminAnalytics({ loaderData }: Route.ComponentProps) {
-  const { summary, period, timeSeries } = loaderData;
+  const {
+    summary,
+    period,
+    timeSeries,
+    courseBreakdown,
+    instructors,
+    instructorId,
+  } = loaderData;
   const { totalRevenue, totalEnrollments, topCourse } = summary;
 
   const isEmpty = totalRevenue === 0 && totalEnrollments === 0;
@@ -290,6 +433,14 @@ export default function AdminAnalytics({ loaderData }: Route.ComponentProps) {
               </ResponsiveContainer>
             </CardContent>
           </Card>
+
+          {/* Course Breakdown Table */}
+          <CourseBreakdownTable
+            rows={courseBreakdown}
+            instructors={instructors}
+            instructorId={instructorId}
+            period={period}
+          />
         </div>
       )}
     </div>
