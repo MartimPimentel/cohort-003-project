@@ -4,20 +4,8 @@ import { getCurrentUserId } from "~/lib/session";
 import { getUserById } from "~/services/userService";
 import {
   getAdminAnalyticsSummary,
-  getAdminRevenueTimeSeries,
-  getAdminCourseBreakdown,
-  getAdminInstructors,
   type TimePeriod,
 } from "~/services/analyticsService";
-import {
-  LineChart,
-  Line,
-  XAxis,
-  YAxis,
-  CartesianGrid,
-  Tooltip,
-  ResponsiveContainer,
-} from "recharts";
 import { UserRole } from "~/db/schema";
 import { Card, CardContent, CardHeader } from "~/components/ui/card";
 import { Button } from "~/components/ui/button";
@@ -25,7 +13,6 @@ import { Skeleton } from "~/components/ui/skeleton";
 import {
   AlertTriangle,
   BarChart3,
-  BookOpen,
   TrendingUp,
   Users,
   Trophy,
@@ -69,24 +56,9 @@ export async function loader({ request }: Route.LoaderArgs) {
     ? (rawPeriod as TimePeriod)
     : "30d";
 
-  const rawInstructor = url.searchParams.get("instructor");
-  const instructorId = rawInstructor
-    ? parseInt(rawInstructor, 10) || undefined
-    : undefined;
-
   const summary = getAdminAnalyticsSummary({ period });
-  const timeSeries = getAdminRevenueTimeSeries({ period });
-  const courseBreakdown = getAdminCourseBreakdown({ period, instructorId });
-  const instructors = getAdminInstructors();
 
-  return {
-    summary,
-    period,
-    timeSeries,
-    courseBreakdown,
-    instructors,
-    instructorId,
-  };
+  return { summary, period };
 }
 
 export function HydrateFallback() {
@@ -97,172 +69,25 @@ export function HydrateFallback() {
         <Skeleton className="mt-2 h-5 w-80" />
       </div>
       <Skeleton className="mb-6 h-9 w-72" />
-      <div className="space-y-8">
-        <div className="grid gap-4 sm:grid-cols-3">
-          {Array.from({ length: 3 }).map((_, i) => (
-            <Card key={i}>
-              <CardHeader className="pb-2">
-                <Skeleton className="h-4 w-32" />
-              </CardHeader>
-              <CardContent>
-                <Skeleton className="h-8 w-24" />
-                <Skeleton className="mt-1 h-4 w-40" />
-              </CardContent>
-            </Card>
-          ))}
-        </div>
-        <Card>
-          <CardHeader className="pb-2">
-            <Skeleton className="h-4 w-40" />
-          </CardHeader>
-          <CardContent>
-            <Skeleton className="h-[280px] w-full" />
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="pb-2">
-            <Skeleton className="h-4 w-40" />
-          </CardHeader>
-          <CardContent>
-            <Skeleton className="mb-4 h-9 w-48" />
-            <Skeleton className="h-[200px] w-full" />
-          </CardContent>
-        </Card>
+      <div className="grid gap-4 sm:grid-cols-3">
+        {Array.from({ length: 3 }).map((_, i) => (
+          <Card key={i}>
+            <CardHeader className="pb-2">
+              <Skeleton className="h-4 w-32" />
+            </CardHeader>
+            <CardContent>
+              <Skeleton className="h-8 w-24" />
+              <Skeleton className="mt-1 h-4 w-40" />
+            </CardContent>
+          </Card>
+        ))}
       </div>
     </div>
   );
 }
 
-function formatYAxis(cents: number) {
-  const dollars = cents / 100;
-  if (dollars >= 1000) return `$${(dollars / 1000).toFixed(1)}k`;
-  return `$${dollars.toFixed(0)}`;
-}
-
-function formatTooltipLabel(cents: unknown) {
-  const value = typeof cents === "number" ? cents : 0;
-  return formatPrice(value);
-}
-
-type CourseBreakdownTableProps = {
-  rows: {
-    courseId: number;
-    title: string;
-    instructorId: number;
-    instructorName: string;
-    listPrice: number;
-    revenue: number;
-    sales: number;
-    enrollments: number;
-    avgRating: number | null;
-  }[];
-  instructors: { id: number; name: string }[];
-  instructorId: number | undefined;
-  period: TimePeriod;
-};
-
-function CourseBreakdownTable({
-  rows,
-  instructors,
-  instructorId,
-  period,
-}: CourseBreakdownTableProps) {
-  return (
-    <Card>
-      <CardHeader>
-        <span className="text-sm font-medium text-muted-foreground">
-          Course Breakdown
-        </span>
-      </CardHeader>
-      <CardContent>
-        {/* Instructor filter */}
-        {instructors.length > 0 && (
-          <form method="get" className="mb-4">
-            <input type="hidden" name="period" value={period} />
-            <select
-              name="instructor"
-              defaultValue={instructorId ?? ""}
-              onChange={(e) => e.currentTarget.form?.submit()}
-              className="rounded-md border border-input bg-background px-3 py-1.5 text-sm shadow-sm focus:outline-none focus:ring-1 focus:ring-ring"
-            >
-              <option value="">All Instructors</option>
-              {instructors.map((i) => (
-                <option key={i.id} value={i.id}>
-                  {i.name}
-                </option>
-              ))}
-            </select>
-          </form>
-        )}
-
-        {rows.length === 0 ? (
-          <div className="flex flex-col items-center justify-center py-10 text-center">
-            <BookOpen className="mb-3 size-8 text-muted-foreground/50" />
-            <p className="text-sm text-muted-foreground">No courses found.</p>
-          </div>
-        ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="border-b text-left text-xs text-muted-foreground">
-                  <th className="pb-2 pr-4 font-medium">Course</th>
-                  <th className="pb-2 pr-4 font-medium">Instructor</th>
-                  <th className="pb-2 pr-4 text-right font-medium">
-                    List Price
-                  </th>
-                  <th className="pb-2 pr-4 text-right font-medium">Revenue</th>
-                  <th className="pb-2 pr-4 text-right font-medium">Sales</th>
-                  <th className="pb-2 pr-4 text-right font-medium">
-                    Enrollments
-                  </th>
-                  <th className="pb-2 text-right font-medium">Avg Rating</th>
-                </tr>
-              </thead>
-              <tbody>
-                {rows.map((row) => (
-                  <tr
-                    key={row.courseId}
-                    className="border-b last:border-0 hover:bg-muted/30"
-                  >
-                    <td className="py-3 pr-4 font-medium">{row.title}</td>
-                    <td className="py-3 pr-4 text-muted-foreground">
-                      {row.instructorName}
-                    </td>
-                    <td className="py-3 pr-4 text-right tabular-nums">
-                      {formatPrice(row.listPrice)}
-                    </td>
-                    <td className="py-3 pr-4 text-right tabular-nums">
-                      {formatPrice(row.revenue)}
-                    </td>
-                    <td className="py-3 pr-4 text-right tabular-nums">
-                      {row.sales.toLocaleString()}
-                    </td>
-                    <td className="py-3 pr-4 text-right tabular-nums">
-                      {row.enrollments.toLocaleString()}
-                    </td>
-                    <td className="py-3 text-right tabular-nums">
-                      {row.avgRating !== null ? row.avgRating.toFixed(1) : "—"}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )}
-      </CardContent>
-    </Card>
-  );
-}
-
 export default function AdminAnalytics({ loaderData }: Route.ComponentProps) {
-  const {
-    summary,
-    period,
-    timeSeries,
-    courseBreakdown,
-    instructors,
-    instructorId,
-  } = loaderData;
+  const { summary, period } = loaderData;
   const { totalRevenue, totalEnrollments, topCourse } = summary;
 
   const isEmpty = totalRevenue === 0 && totalEnrollments === 0;
@@ -313,134 +138,76 @@ export default function AdminAnalytics({ loaderData }: Route.ComponentProps) {
           </p>
         </div>
       ) : (
-        <div className="space-y-8">
-          <div className="grid gap-4 sm:grid-cols-3">
-            {/* Total Revenue */}
-            <Card>
-              <CardHeader className="flex flex-row items-center justify-between pb-2">
-                <span className="text-sm font-medium text-muted-foreground">
-                  Total Revenue
-                </span>
-                <TrendingUp className="size-4 text-muted-foreground" />
-              </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-bold">
-                  {formatPrice(totalRevenue)}
-                </div>
-                <p className="mt-1 text-xs text-muted-foreground">
-                  Across all courses — {PERIOD_LABELS[period]}
-                </p>
-              </CardContent>
-            </Card>
-
-            {/* Total Enrollments */}
-            <Card>
-              <CardHeader className="flex flex-row items-center justify-between pb-2">
-                <span className="text-sm font-medium text-muted-foreground">
-                  Total Enrollments
-                </span>
-                <Users className="size-4 text-muted-foreground" />
-              </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-bold">
-                  {totalEnrollments.toLocaleString()}
-                </div>
-                <p className="mt-1 text-xs text-muted-foreground">
-                  New enrollments — {PERIOD_LABELS[period]}
-                </p>
-              </CardContent>
-            </Card>
-
-            {/* Top Earning Course */}
-            <Card>
-              <CardHeader className="flex flex-row items-center justify-between pb-2">
-                <span className="text-sm font-medium text-muted-foreground">
-                  Top Earning Course
-                </span>
-                <Trophy className="size-4 text-muted-foreground" />
-              </CardHeader>
-              <CardContent>
-                {topCourse ? (
-                  <>
-                    <div
-                      className="truncate text-2xl font-bold"
-                      title={topCourse.title}
-                    >
-                      {topCourse.title}
-                    </div>
-                    <p className="mt-1 text-xs text-muted-foreground">
-                      {formatPrice(topCourse.revenue)} — {PERIOD_LABELS[period]}
-                    </p>
-                  </>
-                ) : (
-                  <>
-                    <div className="text-2xl font-bold text-muted-foreground">
-                      —
-                    </div>
-                    <p className="mt-1 text-xs text-muted-foreground">
-                      No sales in this period
-                    </p>
-                  </>
-                )}
-              </CardContent>
-            </Card>
-          </div>
-
-          {/* Revenue Over Time Chart */}
+        <div className="grid gap-4 sm:grid-cols-3">
+          {/* Total Revenue */}
           <Card>
-            <CardHeader>
+            <CardHeader className="flex flex-row items-center justify-between pb-2">
               <span className="text-sm font-medium text-muted-foreground">
-                Revenue Over Time
+                Total Revenue
               </span>
+              <TrendingUp className="size-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
-              <ResponsiveContainer width="100%" height={280}>
-                <LineChart
-                  data={timeSeries}
-                  margin={{ top: 4, right: 16, left: 8, bottom: 4 }}
-                >
-                  <CartesianGrid
-                    strokeDasharray="3 3"
-                    className="stroke-muted"
-                  />
-                  <XAxis
-                    dataKey="label"
-                    tick={{ fontSize: 12 }}
-                    tickLine={false}
-                    axisLine={false}
-                  />
-                  <YAxis
-                    tickFormatter={formatYAxis}
-                    tick={{ fontSize: 12 }}
-                    tickLine={false}
-                    axisLine={false}
-                    width={56}
-                  />
-                  <Tooltip
-                    formatter={(value) => [
-                      formatTooltipLabel(value),
-                      "Revenue",
-                    ]}
-                  />
-                  <Line
-                    type="monotone"
-                    dataKey="revenue"
-                    strokeWidth={2}
-                    dot={false}
-                    activeDot={{ r: 4 }}
-                  />
-                </LineChart>
-              </ResponsiveContainer>
+              <div className="text-2xl font-bold">
+                {formatPrice(totalRevenue)}
+              </div>
+              <p className="mt-1 text-xs text-muted-foreground">
+                Across all courses — {PERIOD_LABELS[period]}
+              </p>
             </CardContent>
           </Card>
 
-          {/* Course Breakdown Table */}
-          <CourseBreakdownTable
-            rows={courseBreakdown}
-            instructors={instructors}
-            instructorId={instructorId}
-            period={period}
-          />
+          {/* Total Enrollments */}
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between pb-2">
+              <span className="text-sm font-medium text-muted-foreground">
+                Total Enrollments
+              </span>
+              <Users className="size-4 text-muted-foreground" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">
+                {totalEnrollments.toLocaleString()}
+              </div>
+              <p className="mt-1 text-xs text-muted-foreground">
+                New enrollments — {PERIOD_LABELS[period]}
+              </p>
+            </CardContent>
+          </Card>
+
+          {/* Top Earning Course */}
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between pb-2">
+              <span className="text-sm font-medium text-muted-foreground">
+                Top Earning Course
+              </span>
+              <Trophy className="size-4 text-muted-foreground" />
+            </CardHeader>
+            <CardContent>
+              {topCourse ? (
+                <>
+                  <div
+                    className="truncate text-2xl font-bold"
+                    title={topCourse.title}
+                  >
+                    {topCourse.title}
+                  </div>
+                  <p className="mt-1 text-xs text-muted-foreground">
+                    {formatPrice(topCourse.revenue)} — {PERIOD_LABELS[period]}
+                  </p>
+                </>
+              ) : (
+                <>
+                  <div className="text-2xl font-bold text-muted-foreground">
+                    —
+                  </div>
+                  <p className="mt-1 text-xs text-muted-foreground">
+                    No sales in this period
+                  </p>
+                </>
+              )}
+            </CardContent>
+          </Card>
         </div>
       )}
     </div>
