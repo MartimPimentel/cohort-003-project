@@ -7,6 +7,16 @@ if [ -z "$1" ]; then
   exit 1
 fi
 
+# Retrieve fine-grained PAT from macOS Keychain (never hard-coded or stored in env permanently)
+# One-time setup: security add-generic-password -s "github-ralph-pat" -a "$USER" -w "github_pat_..."
+# Scope the PAT to this repo only with: Contents (read+write), Issues (read), Metadata (read)
+GH_TOKEN=$(security find-generic-password -s "github-ralph-pat" -a "$USER" -w 2>/dev/null) || {
+  echo "GitHub PAT not found in Keychain. Run:"
+  echo "  security add-generic-password -s github-ralph-pat -a \$USER -w <your-token>"
+  exit 1
+}
+export GH_TOKEN GITHUB_TOKEN="$GH_TOKEN"
+
 for ((i=1; i<=$1; i++)); do
   tmpfile=$(mktemp)
   trap "rm -f $tmpfile" EXIT
